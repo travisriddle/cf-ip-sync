@@ -37,23 +37,22 @@ This guide explains how to automatically update your Cloudflare DNS records when
 
 ### 4. Update the information at the top of the script in dns-update.sh
 
-NAME="www"  # Name of the DNS record (e.g., vpn)
-
-TYPE="A"    # Type of the DNS record (e.g., A, AAAA)
-
-TOKEN="your-token"
-
-DOMAIN=("domain.name")
-
-ZONE_ID=("your-zone-id")
-
-LOG_FILE="location-of-log-file.log"
+NAME="www"  # Name of the DNS record (e.g., vpn)  
+TYPE="A"    # Type of the DNS record (e.g., A, AAAA)  
+TOKEN="your-token"  
+DOMAIN=("domain.name")  
+ZONE_ID=("your-zone-id")  
+LOG_FILE="location-of-log-file.log"  
 
 ### 5. Run the Script
 
 Make the script executable
 
 `chmod +x update_cloudflare_dns.sh`
+
+Run the script locally:
+
+`./update_cloudflare_dns.sh`
 
 ### 6. Schedule the Script
 
