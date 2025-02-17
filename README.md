@@ -7,7 +7,7 @@ This guide explains how to automatically update your Cloudflare DNS records when
 ## Prerequisites
 
 * A Cloudflare account with a domain managed through it.
-* A server with a dynamic IP address.
+* Internet service with a dynamic IP address.
 * Basic knowledge of shell scripting and cron jobs.
 
 ## Steps
@@ -43,3 +43,19 @@ TOKEN="your-token"
 DOMAIN=("domain.name")
 ZONE_ID=("your-zone-id")
 LOG_FILE="location-of-log-file.log"
+
+### 5. Run the Script
+
+Make the script executable
+
+`chmod +x update_cloudflare_dns.sh`
+
+### 6. Schedule the Script
+
+crontab -e
+
+Add the following line (adjust the schedule as needed):
+
+`*/5 * * * * /path/to/your/script/update_cloudflare_dns.sh`
+
+Replace /path/to/your/script/update_cloudflare_dns.sh with the actual path to your script.
