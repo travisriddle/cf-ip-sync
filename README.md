@@ -1,5 +1,3 @@
-# dns-updater
-
 # How to update your Cloudflare DNS record automatically when your Public IP address changes
 
 This guide explains how to automatically update your Cloudflare DNS records when your Public IP address changes using the Cloudflare API and an API token. This is particularly useful for those with dynamic IP addresses who need to keep their DNS records up-to-date.
