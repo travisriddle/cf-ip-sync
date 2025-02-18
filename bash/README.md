@@ -1,13 +1,13 @@
 ### Update the information at the top of the script in dns-update.sh
 
-`NAME="www"  # Name of the DNS record (e.g., vpn)  
+NAME="www"  # Name of the DNS record (e.g., vpn)  
 TYPE="A"    # Type of the DNS record (e.g., A, AAAA)  
 TOKEN="your-token"  
 DOMAIN=("domain.name")  
 ZONE_ID=("your-zone-id")  
-LOG_FILE="location-of-log-file.log"`  
+LOG_FILE="location-of-log-file.log"  
 
-### 5. Run the Script
+### Run the Script
 
 Make the script executable
 
@@ -17,7 +17,7 @@ Run the script locally:
 
 `./update_cloudflare_dns.sh`
 
-### 6. Schedule the Script
+### Schedule the Script
 
 crontab -e
 
