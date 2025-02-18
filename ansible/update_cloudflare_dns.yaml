@@ -1,0 +1,116 @@
+---
+- hosts: localhost
+  become: true
+
+  vars:
+    cloudflare_token: "your-token"
+    cloudflare_zone_id: "your-zone-id"
+    dns_record_name: "www"
+    dns_record_type: "A"
+    domain: "your-domain.com"
+    log_file: "/log-location/ip-change.log"  # Update path
+    # Use a fact to store the record ID. This will be set on the first run, and only updated when needed
+    cloudflare_record_id: "{{ lookup('file', '/tmp/cloudflare_record_id.txt') | default('') }}"
+
+  tasks:
+    - name: Install jq (if not already installed)
+      package:
+        name: jq
+        state: present
+
+    - name: Get current public IP (using multiple methods for reliability)
+      block:
+        - name: Try dig
+          shell: dig +short myip.opendns.com @resolver1.opendns.com
+          register: current_ip_dig
+          ignore_errors: true
+
+        - name: Try ifconfig.me
+          shell: curl -s https://ifconfig.me/ip
+          register: current_ip_ifconfig
+          ignore_errors: true
+
+        - name: Try icanhazip.com
+          shell: curl -s https://icanhazip.com
+          register: current_ip_icanhazip
+          ignore_errors: true
+
+        - name: Set current_ip fact
+          set_fact:
+            current_ip: "{{ current_ip_dig.stdout | default(current_ip_ifconfig.stdout | default(current_ip_icanhazip.stdout)) }}"
+      rescue:
+        - name: Fail if no IP address could be retrieved (or IP is empty)
+          fail:
+            msg: "Could not retrieve public IP address after trying multiple methods."
+          when: current_ip is not defined or current_ip == ""
+
+    - name: Get existing DNS record content
+      uri:
+        url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records?name={{ dns_record_name }}.{{ domain }}&type={{ dns_record_type }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ cloudflare_token }}"
+        return_content: yes
+        status_code: [200]
+      register: dns_record_info
+
+    - name: Set cf_ip fact
+      set_fact:
+        cf_ip: "{{ dns_record_info.json.result[0].content | default('') }}"
+
+    - name: Get Cloudflare Record ID (only if IP changed or it's the first run)
+      block:
+        - name: Get record ID
+          uri:
+            url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records?name={{ dns_record_name }}.{{ domain }}&type={{ dns_record_type }}"
+            method: GET
+            headers:
+              Authorization: "Bearer {{ cloudflare_token }}"
+            return_content: yes
+            status_code: [200]
+          register: record_id_info
+
+        - name: Set cloudflare_record_id fact and write to file
+          set_fact:
+            cloudflare_record_id: "{{ record_id_info.json.result[0].id }}"
+        - copy:
+            content: "{{ cloudflare_record_id }}"
+            dest: "/tmp/cloudflare_record_id.txt"
+      when: current_ip != cf_ip or cloudflare_record_id == ""
+
+    - name: Update DNS record
+      uri:
+        url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id }}/dns_records/{{ cloudflare_record_id }}"
+        method: PUT
+        headers:
+          Authorization: "Bearer {{ cloudflare_token }}"
+          Content-Type: "application/json"
+        body: '{ "content": "{{ current_ip }}", "name": "{{ dns_record_name }}", "type": "{{ dns_record_type }}", "ttl": 1, "proxied": false }'
+        body_format: json
+        status_code: [200]
+      when: current_ip != cf_ip or cloudflare_record_id == ""
+      register: update_result
+
+    - name: Log messages  # This is the logging block
+      block:
+        - name: Log IP change to file
+          lineinfile:
+            path: "{{ log_file }}"
+            line: "{{ ansible_date_time.date }},{{ current_ip }}"
+            create: yes
+          when: current_ip != cf_ip
+
+        - name: Log no change
+          debug:
+            msg: "IP has not changed ({{ current_ip }})."
+          when: current_ip == cf_ip and cf_ip != ""
+
+        - name: Log first run
+          debug:
+            msg: "First run: Setting initial IP to {{ current_ip }}."
+          when: cf_ip == ""
+
+    - name: Fail on DNS update error
+      fail:
+        msg: "Failed to update DNS record. Full API Response: {{ update_result }}"
+      when: update_result is defined and (update_result.status_code is not defined or update_result.status_code != 200 or (update_result.json is defined and update_result.json.success is defined and update_result.json.success == false))
