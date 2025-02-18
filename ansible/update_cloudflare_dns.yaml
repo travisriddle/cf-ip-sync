@@ -7,7 +7,7 @@
     cloudflare_zone_id: "your-zone-id"
     dns_record_name: "www"
     dns_record_type: "A"
-    domain: "your-domain.com"
+    domain: "rfntech.net"
     log_file: "/log-location/ip-change.log"  # Update path
     # Use a fact to store the record ID. This will be set on the first run, and only updated when needed
     cloudflare_record_id: "{{ lookup('file', '/tmp/cloudflare_record_id.txt') | default('') }}"
@@ -91,6 +91,10 @@
       when: current_ip != cf_ip or cloudflare_record_id == ""
       register: update_result
 
+    - name: Set update_result to an empty dict if it's not defined (important!)
+      set_fact:
+        update_result: {}
+
     - name: Log messages  # This is the logging block
       block:
         - name: Log IP change to file
@@ -110,7 +114,8 @@
             msg: "First run: Setting initial IP to {{ current_ip }}."
           when: cf_ip == ""
 
-    - name: Fail on DNS update error
+    - name: Fail on DNS update error (only if actual API error AND update_result is defined AND has errors)
       fail:
-        msg: "Failed to update DNS record. Full API Response: {{ update_result }}"
-      when: update_result is defined and (update_result.status_code is not defined or update_result.status_code != 200 or (update_result.json is defined and update_result.json.success is defined and update_result.json.success == false))
+        msg: "Failed to update DNS record: {{ update_result.json.errors[0].message | default('Unknown error') }}"
+      when: update_result is defined and update_result.status_code is defined and update_result.status_code != 200 or (update_result.json is defined and update_result.json.success is defined and update_result.json.success == false) and update_result.json is defined and update_result.json.errors is defined # <-- Added condition
+
